@@ -1,0 +1,11 @@
+---
+title: "Final Project"
+students: "Shaked Chen 211577275 Elad Ron 322879750"
+output: html_document
+---
+```{r}
+E2 <- read.csv("data/E2_treatment.tsv",sep = "\t")
+ZNA <- read.csv("data/ZNA_molocule_treatment.tsv",sep = "\t")
+E2
+ZNA
+```
