@@ -34,7 +34,7 @@ colnames(counts)[-1] == rownames(metadata)
 
 ```
 
-Desq analsis
+Desq analysis
 
 ```{r}
 dds <- DESeqDataSetFromMatrix(countData=counts, colData=metadata, design= ~compound,tidy=TRUE)
