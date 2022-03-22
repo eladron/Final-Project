@@ -3,9 +3,138 @@ title: "Final Project"
 students: "Shaked Chen 211577275 Elad Ron 322879750"
 output: html_document
 ---
-```{r}
-E2 <- read.csv("data/E2_treatment.tsv",sep = "\t")
-ZNA <- read.csv("data/ZNA_molocule_treatment.tsv",sep = "\t")
-E2
-ZNA
+
+Load libraries
+```{r} 
+library(DESeq2)
+
 ```
+
+
+```{r}
+counts <- read.table("data/ZNA_molocule_treatment.tsv", stringsAsFactors = FALSE, sep='\t', header=T)
+genes.symbols <- counts[,2]
+counts <- counts[-2]
+metadata <- read.csv("data/ZNAcoldata.tsv",stringsAsFactors = FALSE, sep='\t', header=T)#read the experiment info
+```
+
+change the metadata
+```{r}
+newdata <- metadata[10]
+rownames(newdata) <- metadata[,1]
+metadata <- newdata
+names(metadata)[1] <- "compound"
+metadata[1] <- mapvalues(metadata[,1],c("ZNA 30 micromolar") , c("ZNA"))
+metadata$compound <- as.factor(metadata$compound)
+colnames(counts)[-1] == rownames(metadata)
+# fixing them
+metadata <- metadata[order(match(rownames(metadata),colnames(counts)[-1])), , drop= FALSE]
+# making sure they all fit
+colnames(counts)[-1] == rownames(metadata)
+
+```
+
+Desq analsis
+
+```{r}
+dds <- DESeqDataSetFromMatrix(countData=counts, colData=metadata, design= ~compound,tidy=TRUE)
+dds <- DESeq(dds)
+```
+
+analyze result between zna and vehice control
+```{r}
+res <- lfcShrink(dds, contrast = c('compound','ZNA', 'DMSO') , type="ashr")
+res["symbol"] <- genes.symbols
+resOrder <- res[order(res$pvalue),]
+EnhancedVolcano(resOrder ,
+                lab = resOrder$symbol,
+                x = 'log2FoldChange',
+                y = 'padj',
+)
+
+```
+
+pca
+```{r}
+
+dds.norm <- vst(dds, blind=T)
+```
+
+- Use plotPCA() to run PCA on "dds.norm":
+(1) Use the top 1,000 variable genes
+(2) Color the sample by "tissue"
+```{r}
+plotPCA(dds.norm,intgroup = "compound" ,ntop =1000)
+
+
+```
+
+
+
+vst
+
+```{r}
+
+normcounts <- assay(vst(dds, blind=T))
+colnames(normcounts) <- paste0(metadata$compound, seq(1, length(metadata$compound)))
+
+var_per_gene <- apply(normcounts, 1, var)  # Calculate the variance per gene
+selectedGenes <- names(var_per_gene[order(var_per_gene, decreasing = T)][1:1000]) # Take the top 1000 variable genes
+normcounts.top1Kvar <- t(normcounts[selectedGenes,])  # Construct a new matrix only for the top 1000 genes
+# now we will find out the best k (number f clusters) to use
+fviz_nbclust(normcounts.top1Kvar, FUN = hcut, method = "wss")
+# we can see the best number of cluster to use is k=2 because the slope from k=1 to k=2 is the sharpest
+kmeans.out <- kmeans(normcounts.top1Kvar, centers = 2)
+fviz_cluster(kmeans.out, data = normcounts.top1Kvar)
+
+```
+
+- First we need to create an ordered vector by the log fold change with the gene symbols as row names:
+```{r}
+DE_genes_entrez_rank <- resOrder[!is.na(resOrder$padj),]
+DE_genes_list <- DE_genes_entrez_rank$log2FoldChange
+names(DE_genes_list) <- DE_genes_entrez_rank$symbol
+DE_genes_list <- sort(DE_genes_list, decreasing = T)
+```
+
+- We now need to get the Hallmarks pathways gene sets. We will use the msigdbr package for that:
+```{r}
+hallmarks <- msigdbr(species = "Homo sapiens", category = "H") %>% dplyr::select(gs_name, gene_symbol)
+```
+
+- Use the GSEA() function from the clusterProfiler package to run the analysis.
+- You can find an awesome tutorial for the clusterProfiler package here: http://yulab-smu.top/biomedical-knowledge-mining-book/universal-api.html
+- Save your results into "hm"
+```{r}
+hm <- GSEA(DE_genes_list , TERM2GENE = hallmarks )
+```
+
+- Finally, visualize the results of this analysis using the dotPlot function from the clusterProfiler database.
+```{r}
+hallmarks <- msigdbr(species = "Homo sapiens", category = "H")
+hallmarks <- hallmarks[,c('gs_name', 'gene_symbol')]
+dotplot(hm)
+
+```
+
+
+```{r}
+correlationMatrix <- cor(normcounts[selectedGenes,])
+head(correlationMatrix)
+```
+With corrplot:
+```{r}
+library(corrplot)
+corrplot(correlationMatrix^2, order = 'hclust', 
+         addrect = 4, 
+         number.cex = 0.7,tl.cex = 0.1) 
+```
+
+
+
+
+
+
+
+
+
