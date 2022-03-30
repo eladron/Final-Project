@@ -98,8 +98,10 @@ EnhancedVolcano(resOrdered1,
                 lab = resOrdered1$symbol,
                 x = 'log2FoldChange',
                 y = 'padj',
-                labSize=3,
+                labSize=4,
+                title = 'E2 versus DMSO',
                 pCutoff = 10e-10,
+                pointSize = 2.0,
                 xlim = c(-10, 10),
                 FCcutoff=2 )
 # Dataset2
@@ -107,7 +109,9 @@ EnhancedVolcano(resOrdered2,
                 lab = resOrdered2$symbol,
                 x = 'log2FoldChange',
                 y = 'padj',
-                labSize=3,
+                title = 'ZNA versus DMSO',
+                labSize=4,
+                pointSize = 2.0,
                 pCutoff = 10e-10,
                 xlim = c(-10, 10),
                 FCcutoff=2 )
@@ -135,7 +139,13 @@ normcounts = assay(vst(dds.symbol,blind=T))
 #pheatmap(normcounts[select,], cluster_rows=TRUE,
       #   show_colnames = FALSE,cluster_cols=TRUE, 
        #  annotation_col=df, scale = 'row',cutree_cols = 2,cutree_rows = 2)
-plotPCA(vst(dds.symbol,blind=T),ntop=1000,intgroup="compound")
+pca_plot <- plotPCA(vst(dds.symbol,blind=T),ntop=1000,intgroup="compound")
+pca_plot + scale_color_manual(values=c("mediumpurple1","darkolivegreen3"))+
+  xlab("PC1") +
+  ylab("PC2") +
+  ggtitle("PCA analysis for E2 samples") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
 
 ```
 
@@ -153,8 +163,13 @@ normcounts = assay(vst(dds.symbol,blind=T))
 #pheatmap(normcounts[select,], cluster_rows=TRUE,
       #   show_colnames = FALSE,cluster_cols=TRUE, 
        #  annotation_col=df, scale = 'row',cutree_cols = 2,cutree_rows = 2)
-plotPCA(vst(dds.symbol,blind=T),ntop=1000,intgroup="compound")
-
+pca_plot <- plotPCA(vst(dds.symbol,blind=T),ntop=1000,intgroup="compound")
+pca_plot + scale_color_manual(values=c("mediumpurple1","darkolivegreen3"))+
+  xlab("PC1") +
+  ylab("PC2") +
+  ggtitle("PCA analysis for ZNA samples") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
 ```
 ######################################################
 ##                                                  ##
@@ -165,16 +180,6 @@ plotPCA(vst(dds.symbol,blind=T),ntop=1000,intgroup="compound")
 
 
 ```{r}
-
-columns1 <- metadata1$compound == 'DMSO'
-columns1 <- c(TRUE,columns1)
-DMSO_counts1 <- counts1[ columns1] 
-columns2 <- metadata2$compound == 'DMSO'
-columns2 <- c(TRUE,columns2)
-DMSO_counts2 <- counts2[ columns2]
-View(DMSO_counts1)
-View(DMSO_counts2)
-merged_DMSO <- merge(x= DMSO_counts1,y=DMSO_counts2,by="Gene.ID" ,all.x=TRUE)
 merged_counts = merged_all <- merge(x= counts1,y= counts2,by="Gene.ID" ,all.x=TRUE)
 merged_metadata <- rbind(metadata1, metadata2)
 View(merged_counts)
@@ -191,5 +196,14 @@ dds <- DESeq(dds)
 dds.symbol <- dds
 normcounts = assay(vst(dds.symbol, blind=T))
 var_per_gene <- apply(normcounts, 1, var)
-plotPCA(vst(dds.symbol,blind=T),ntop=1000,intgroup="compound")
+pca_plot <- plotPCA(vst(dds.symbol,blind=T),ntop=1000,intgroup="compound")
+pca_plot + scale_color_manual(values=c("mediumpurple1","darkolivegreen3"))+
+  xlab("PC1") +
+  ylab("PC2") +
+  ggtitle("PCA analysis for ZNA and E2 samples") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
 ```
+
+
+
