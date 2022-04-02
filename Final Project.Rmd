@@ -26,10 +26,8 @@ counts1[apply(counts1[,-1], 1, function(x) !all(x==0)),] # remove zeros
 ```{r}
 #dataset 2 - ZNA sampels
 counts2 <- read.table("data/ZNA_molocule_treatment.tsv", sep='\t', header=T)
-genes.symbols2 <- counts2[,2] 
-counts2 <- counts2[,-2] 
 metadata2 <- read.table("data/ZNAcoldata.tsv", sep='\t', header=T)
-counts2[apply(counts1[,-1], 1, function(x) !all(x==0)),] # remove zeros
+counts2[apply(counts2[,-1], 1, function(x) !all(x==0)),] # remove zeros
 ```
 
 ######################################################
@@ -58,7 +56,37 @@ names(metadata2)[1] <- "compound"
 metadata2[1] <- mapvalues(metadata2[,1],c("ZNA 30 micromolar") , c("ZNA"))
 metadata2$compound <- as.factor(metadata2$compound)
 # Ordering the values
-metadata2 <- metadata2[order(match(rownames(metadata2),colnames(counts2)[-1])), , drop= FALSE]
+metadata2 <- metadata2[order(match(rownames(metadata2),colnames(counts2[,-2])[-1])), , drop= FALSE]
+```
+
+######################################################
+##                                                  ##
+##              Split ZNA dataset into 2            ##
+##        One for 3 hrs and second for 12 hrs       ##
+######################################################
+
+```{r}
+counts3 <- counts2[c(1,2,4,5,6,8,9,11)] # 12 hrs
+counts3[apply(counts3[,-1], 1, function(x) !all(x==0)),] # remove zeros
+
+counts2 <- counts2[c(1,2,3,7,10,12,13,14)] # 3 hrs
+counts2[apply(counts2[,-1], 1, function(x) !all(x==0)),] # remove zeros
+genes.symbols2 <- counts2[,2] 
+counts2 <- counts2[,-2] 
+
+genes.symbols3 <- counts3[,2] 
+counts3 <- counts3[,-2] 
+```
+
+
+```{r}
+metadata3 <- data.frame(metadata2[c(2,3,4,6,7,9),])
+rownames(metadata3) <- rownames(metadata2)[c(2,3,4,6,7,9)]
+names(metadata3)[1] <- "compound"
+a <- data.frame(metadata2[c(1,5,8,10,11,12),])
+rownames(a) <- rownames(metadata2)[c(1,5,8,10,11,12)]
+names(a)[1] <- "compound"
+metadata2 <- a
 ```
 
 ######################################################
@@ -86,6 +114,16 @@ plotMA(resLFC2)
 resLFC2$symbol <- genes.symbols2
 resOrdered2 <- resLFC2[order(resLFC2$pvalue),]
 ```
+```{r}
+dds3 <- DESeqDataSetFromMatrix(countData=counts3 , colData=metadata3, design= ~compound,tidy=TRUE)
+dds3 <- DESeq(dds3)
+resultsNames(dds3)
+resLFC3 <- lfcShrink(dds3, contrast = c("compound", "ZNA", "DMSO") , type="ashr")
+plotMA(resLFC3)
+resLFC3$symbol <- genes.symbols3
+resOrdered3 <- resLFC3[order(resLFC3$pvalue),]
+```
+
 
 ######################################################
 ##                                                  ##
@@ -109,7 +147,20 @@ EnhancedVolcano(resOrdered2,
                 lab = resOrdered2$symbol,
                 x = 'log2FoldChange',
                 y = 'padj',
-                title = 'ZNA versus DMSO',
+                title = 'ZNA versus DMSO after 3 hours',
+                labSize=4,
+                pointSize = 2.0,
+                pCutoff = 10e-10,
+                xlim = c(-10, 10),
+                FCcutoff=2 )
+
+
+
+EnhancedVolcano(resOrdered3,
+                lab = resOrdered3$symbol,
+                x = 'log2FoldChange',
+                y = 'padj',
+                title = 'ZNA versus DMSO after 12 hours',
                 labSize=4,
                 pointSize = 2.0,
                 pCutoff = 10e-10,
@@ -150,7 +201,7 @@ pca_plot + scale_color_manual(values=c("mediumpurple1","darkolivegreen3"))+
 ```
 
 ```{r}
-#Running PCA between ZNA and DMSO
+#Running PCA between ZNA and DMSO after 3hrs
 dds.symbol <- dds2
 rownames(dds.symbol) <- mapIds(org.Hs.eg.db,
                               keys=rownames(dds2),
@@ -164,12 +215,7 @@ normcounts = assay(vst(dds.symbol,blind=T))
       #   show_colnames = FALSE,cluster_cols=TRUE, 
        #  annotation_col=df, scale = 'row',cutree_cols = 2,cutree_rows = 2)
 pca_plot <- plotPCA(vst(dds.symbol,blind=T),ntop=1000,intgroup="compound")
-pca_plot + scale_color_manual(values=c("mediumpurple1","darkolivegreen3"))+
-  xlab("PC1") +
-  ylab("PC2") +
-  ggtitle("PCA analysis for ZNA samples") +
-  theme_bw() +
-  theme(plot.title = element_text(hjust = 0.5))
+pca_plot + ggtitle("PCA analysis for ZNA samples after 3 hours of treatment")
 ```
 ######################################################
 ##                                                  ##
@@ -197,13 +243,17 @@ dds.symbol <- dds
 normcounts = assay(vst(dds.symbol, blind=T))
 var_per_gene <- apply(normcounts, 1, var)
 pca_plot <- plotPCA(vst(dds.symbol,blind=T),ntop=1000,intgroup="compound")
-pca_plot + scale_color_manual(values=c("mediumpurple1","darkolivegreen3"))+
+pca_plot + 
   xlab("PC1") +
   ylab("PC2") +
-  ggtitle("PCA analysis for ZNA and E2 samples") +
-  theme_bw() +
-  theme(plot.title = element_text(hjust = 0.5))
+  ggtitle("PCA analysis for ZNA and E2 samples")
 ```
 
 
+
+######################################################
+##                                                  ##
+##             another analysis                     ##
+##                                                  ##
+######################################################
 
