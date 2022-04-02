@@ -226,34 +226,47 @@ pca_plot + ggtitle("PCA analysis for ZNA samples after 3 hours of treatment")
 
 
 ```{r}
-merged_counts = merged_all <- merge(x= counts1,y= counts2,by="Gene.ID" ,all.x=TRUE)
-merged_metadata <- rbind(metadata1, metadata2)
+metadata2[1] <- mapvalues(metadata2[,1],c("ZNA 3hrs") , c("ZNA_3hrs"))
+metadata3[1] <- mapvalues(metadata3[,1],c("ZNA 12hrs") , c("ZNA_12hrs"))
+
+
+
+merged_counts = merged_all <- merge(x= counts2,y= counts3,by="Gene.ID" ,all.x=TRUE)
+#merged_counts <- merge(x= merged_counts, y= counts3 ,by="Gene.ID" ,all.x=TRUE)
+merged_metadata <- rbind(metadata2, metadata3)
+#merged_metadata <- rbind(merged_metadata,metadata3)
 View(merged_counts)
+
 ```
 
 creating PCA
 ```{r}
 merged_counts <- na.omit(merged_counts) 
-dds <- DESeqDataSetFromMatrix(countData=merged_counts,
-                              colData=merged_metadata,
-                              design= ~compound,
-                              tidy=TRUE)
+dds <- DESeqDataSetFromMatrix(countData=merged_counts , colData=merged_metadata, design= ~compound,tidy=TRUE)
 dds <- DESeq(dds)
 dds.symbol <- dds
-normcounts = assay(vst(dds.symbol, blind=T))
-var_per_gene <- apply(normcounts, 1, var)
+rownames(dds.symbol) <- mapIds(org.Hs.eg.db,
+                              keys=rownames(dds),
+                              column="SYMBOL",
+                              keytype="ENSEMBL",
+                              multiVals="first")
+rownames(dds.symbol)[is.na(rownames(dds.symbol))] <- rownames(dds2)[is.na(rownames(dds.symbol))]
+rownames(dds.symbol) <- make.unique(rownames(dds.symbol))
+normcounts = assay(vst(dds.symbol,blind=T))
+#pheatmap(normcounts[select,], cluster_rows=TRUE,
+      #   show_colnames = FALSE,cluster_cols=TRUE, 
+       #  annotation_col=df, scale = 'row',cutree_cols = 2,cutree_rows = 2)
 pca_plot <- plotPCA(vst(dds.symbol,blind=T),ntop=1000,intgroup="compound")
-pca_plot + 
-  xlab("PC1") +
-  ylab("PC2") +
-  ggtitle("PCA analysis for ZNA and E2 samples")
+pca_plot + ggtitle("PCA analysis for ZNA treatments")
 ```
-
-
 
 ######################################################
 ##                                                  ##
 ##             another analysis                     ##
 ##                                                  ##
 ######################################################
+
+
+
+
 
