@@ -1,0 +1,402 @@
+---
+  title: "Final Project"
+students: "Shaked Chen 211577275 Elad Ron 322879750"
+output: html_document
+---
+  
+  Load libraries
+```{r} 
+library(pheatmap)
+library(DESeq2)
+library(plyr)
+library(EnhancedVolcano)
+library("org.Hs.eg.db")
+library(ggplot2)
+library(msigdbr)
+library(clusterProfiler)
+```
+
+```{r}
+#dataset 1 - E2 sampels
+counts1 <- read.table("data/E2_treatment.tsv", sep='\t', header=T)
+genes.symbols1 <- counts1[,2] 
+counts1 <- counts1[,-2] 
+metadata1 <- read.table("data/E2coldata.tsv", sep='\t', header=T)
+counts1[apply(counts1[,-1], 1, function(x) !all(x==0)),] # remove zeros
+```
+
+```{r}
+#dataset 2 - ZNA sampels
+counts2 <- read.table("data/ZNA_molocule_treatment.tsv", sep='\t', header=T)
+metadata2 <- read.table("data/ZNAcoldata.tsv", sep='\t', header=T)
+counts2[apply(counts2[,-1], 1, function(x) !all(x==0)),] # remove zeros
+```
+
+######################################################
+##                                                  ##
+##         Change the metadata accordingly          ##
+##                                                  ##
+######################################################
+```{r}
+##Metadata 1
+newdata <- metadata1[8]
+rownames(newdata) <- metadata1[,1]
+metadata1 <- newdata
+names(metadata1)[1] <- "compound"
+metadata1[1] <- mapvalues(metadata1[,1],c("17beta-estradiol 10 nanomolar","vehicle") , c("E2","DMSO"))
+metadata1$compound <- as.factor(metadata1$compound)
+# Ordering the values
+metadata1 <- metadata1[order(match(rownames(metadata1),colnames(counts1)[-1])), , drop= FALSE]
+```
+
+```{r}
+##Metadata 2
+newdata <- metadata2[10]
+rownames(newdata) <- metadata2[,1]
+metadata2 <- newdata
+names(metadata2)[1] <- "compound"
+metadata2[1] <- mapvalues(metadata2[,1],c("ZNA 30 micromolar") , c("ZNA"))
+metadata2$compound <- as.factor(metadata2$compound)
+# Ordering the values
+metadata2 <- metadata2[order(match(rownames(metadata2),colnames(counts2[,-2])[-1])), , drop= FALSE]
+```
+
+######################################################
+##                                                  ##
+##              Split ZNA dataset into 2            ##
+##        One for 3 hrs and second for 12 hrs       ##
+######################################################
+
+```{r}
+counts3 <- counts2[c(1,2,4,5,6,8,9,11)] # 12 hrs
+counts3[apply(counts3[,-1], 1, function(x) !all(x==0)),] # remove zeros
+
+counts2 <- counts2[c(1,2,3,7,10,12,13,14)] # 3 hrs
+counts2[apply(counts2[,-1], 1, function(x) !all(x==0)),] # remove zeros
+genes.symbols2 <- counts2[,2] 
+counts2 <- counts2[,-2] 
+
+genes.symbols3 <- counts3[,2] 
+counts3 <- counts3[,-2] 
+```
+
+
+```{r}
+metadata3 <- data.frame(metadata2[c(2,3,4,6,7,9),])
+rownames(metadata3) <- rownames(metadata2)[c(2,3,4,6,7,9)]
+names(metadata3)[1] <- "compound"
+a <- data.frame(metadata2[c(1,5,8,10,11,12),])
+rownames(a) <- rownames(metadata2)[c(1,5,8,10,11,12)]
+names(a)[1] <- "compound"
+metadata2 <- a
+```
+
+######################################################
+##                                                  ##
+##              Create DESeq2 object                ##
+##                  Using LFC                       ##
+######################################################
+
+```{r}
+dds1 <- DESeqDataSetFromMatrix(countData=counts1, colData=metadata1, design= ~compound,tidy=TRUE)
+dds1 <- DESeq(dds1)
+resultsNames(dds1)
+resLFC1 <- lfcShrink(dds1, contrast = c("compound", "E2", "DMSO") , type="ashr")
+plotMA(resLFC1)
+resLFC1$symbol <- genes.symbols1
+resOrdered1 <- resLFC1[order(resLFC1$pvalue),]
+```
+
+```{r}
+dds2 <- DESeqDataSetFromMatrix(countData=counts2 , colData=metadata2, design= ~compound,tidy=TRUE)
+dds2 <- DESeq(dds2)
+resultsNames(dds2)
+resLFC2 <- lfcShrink(dds2, contrast = c("compound", "ZNA", "DMSO") , type="ashr")
+plotMA(resLFC2)
+resLFC2$symbol <- genes.symbols2
+resOrdered2 <- resLFC2[order(resLFC2$pvalue),]
+```
+```{r}
+dds3 <- DESeqDataSetFromMatrix(countData=counts3 , colData=metadata3, design= ~compound,tidy=TRUE)
+dds3 <- DESeq(dds3) 
+resultsNames(dds3)
+resLFC3 <- lfcShrink(dds3, contrast = c("compound", "ZNA", "DMSO") , type="ashr")
+plotMA(resLFC3)
+resLFC3$symbol <- genes.symbols3
+resOrdered3 <- resLFC3[order(resLFC3$pvalue),]
+```
+
+
+######################################################
+##                                                  ##
+##             Creating Volcano PLot                ##
+##                                                  ##
+######################################################
+```{r}
+# Dataset1
+EnhancedVolcano(resOrdered1,
+                lab = resOrdered1$symbol,
+                x = 'log2FoldChange',
+                y = 'padj',
+                labSize=4,
+                title = 'E2 versus DMSO',
+                pCutoff = 10e-10,
+                pointSize = 2.0,
+                xlim = c(-10, 10),
+                FCcutoff=2 )
+# Dataset2
+EnhancedVolcano(resOrdered2,
+                lab = resOrdered2$symbol,
+                x = 'log2FoldChange',
+                y = 'padj',
+                title = 'ZNA versus DMSO after 3 hours',
+                labSize=4,
+                pointSize = 2.0,
+                pCutoff = 10e-10,
+                xlim = c(-10, 10),
+                FCcutoff=2 )
+
+
+
+EnhancedVolcano(resOrdered3,
+                lab = resOrdered3$symbol,
+                x = 'log2FoldChange',
+                y = 'padj',
+                title = 'ZNA versus DMSO after 12 hours',
+                labSize=4,
+                pointSize = 2.0,
+                pCutoff = 10e-10,
+                xlim = c(-10, 10),
+                FCcutoff=2 )
+
+```
+
+######################################################
+##                                                  ##
+##                 Running PCA                      ##
+##                                                  ##
+######################################################
+
+
+```{r}
+#Running PCA between E2 and DMSO
+dds.symbol <- dds1
+rownames(dds.symbol) <- mapIds(org.Hs.eg.db,
+                               keys=rownames(dds1),
+                               column="SYMBOL",
+                               keytype="ENSEMBL",
+                               multiVals="first")
+rownames(dds.symbol)[is.na(rownames(dds.symbol))] <- rownames(dds1)[is.na(rownames(dds.symbol))]
+rownames(dds.symbol) <- make.unique(rownames(dds.symbol))
+normcounts = assay(vst(dds.symbol,blind=T))
+pca_plot <- plotPCA(vst(dds.symbol,blind=T),ntop=1000,intgroup="compound")
+pca_plot + ggtitle("PCA analysis for E2 samples")
+```
+
+######################################################
+##                                                  ##
+##             Running PCA on Both                  ##
+##                                                  ##
+######################################################
+
+```{r}
+metadata2[1] <- mapvalues(metadata2[,1],c("ZNA") , c("ZNA_3hrs"))
+metadata3[1] <- mapvalues(metadata3[,1],c("ZNA") , c("ZNA_12hrs"))
+
+merged_counts = merged_all <- merge(x= counts1,y= counts2,by="Gene.ID" ,all.x=TRUE)
+merged_metadata <- rbind(metadata1, metadata2)
+```
+
+creating PCA
+```{r}
+merged_counts <- na.omit(merged_counts) 
+dds <- DESeqDataSetFromMatrix(countData=merged_counts , colData=merged_metadata, design= ~compound,tidy=TRUE)
+dds <- DESeq(dds)
+dds.symbol <- dds
+rownames(dds.symbol) <- mapIds(org.Hs.eg.db,
+                               keys=rownames(dds),
+                               column="SYMBOL",
+                               keytype="ENSEMBL",
+                               multiVals="first")
+rownames(dds.symbol)[is.na(rownames(dds.symbol))] <- rownames(dds2)[is.na(rownames(dds.symbol))]
+rownames(dds.symbol) <- make.unique(rownames(dds.symbol))
+normcounts = assay(vst(dds.symbol,blind=T))
+pca_plot <- plotPCA(vst(dds.symbol,blind=T),ntop=1000,intgroup="compound")
+pca_plot + ggtitle("PCA analysis for ZNA after 3hrs and E2 treatments")
+```
+######################################################
+##                                                  ##
+##             Running PCA on ZNA                   ##
+##                                                  ##
+######################################################
+```{r}
+merged_counts = merged_all <- merge(x= counts2,y= counts3,by="Gene.ID" ,all.x=TRUE)
+merged_counts[apply(merged_counts[,-1], 1, function(x) !all(x==0)),] # remove zeros
+merged_metadata <- rbind(metadata2, metadata3)
+```
+
+creating PCA
+```{r}
+merged_counts <- na.omit(merged_counts) 
+dds <- DESeqDataSetFromMatrix(countData=merged_counts , colData=merged_metadata, design= ~compound,tidy=TRUE)
+dds <- DESeq(dds)
+dds.symbol <- dds
+rownames(dds.symbol) <- mapIds(org.Hs.eg.db,
+                               keys=rownames(dds),
+                               column="SYMBOL",
+                               keytype="ENSEMBL",
+                               multiVals="first")
+rownames(dds.symbol)[is.na(rownames(dds.symbol))] <- rownames(dds2)[is.na(rownames(dds.symbol))]
+rownames(dds.symbol) <- make.unique(rownames(dds.symbol))
+normcounts = assay(vst(dds.symbol,blind=T))
+pca_plot <- plotPCA(vst(dds.symbol,blind=T),ntop=1000,intgroup="compound")
+pca_plot + ggtitle("PCA analysis for ZNA treatments")
+```
+######################################################
+##                                                  ##
+##             enrichment analysis                  ##
+##                                                  ##
+######################################################
+
+```{r}
+resLFC <- lfcShrink(dds, contrast = c('compound', 'ZNA_12hrs', 'ZNA_3hrs') , type="ashr")
+resLFC["symbol"] <- genes.symbols2
+resOrdered <- resLFC[order(resLFC$pvalue),]
+```
+
+- First we need to create an ordered vector by the log fold change with the gene symbols as row names:
+  ```{r}
+DE_genes_entrez_rank <- resOrdered[!is.na(resOrdered$padj),]
+DE_genes_list <- DE_genes_entrez_rank$log2FoldChange
+names(DE_genes_list) <- DE_genes_entrez_rank$symbol
+DE_genes_list <- sort(DE_genes_list, decreasing = T)
+```
+
+- We now need to get the Hallmgenarks pathways gene sets. We will use the msigdbr package for that:
+  ```{r}
+hallmarks <- msigdbr(species = "Homo sapiens", category = "H") %>% dplyr::select(gs_name, gene_symbol)
+```
+
+- Use the GSEA() function from the clusterProfiler package to run the analysis.
+- You can find an awesome tutorial for the clusterProfiler package here: http://yulab-smu.top/biomedical-knowledge-mining-book/universal-api.html
+- Save your results into "hm"
+```{r}
+hm <- GSEA(DE_genes_list , TERM2GENE = hallmarks )
+```
+
+- Finally, visualize the results of this analysis using the dotPlot function from the clusterProfiler database.
+```{r}
+hallmarks <- msigdbr(species = "Homo sapiens", category = "H")
+hallmarks <- hallmarks[,c('gs_name', 'gene_symbol')]
+dotplot(hm)
+```
+
+
+```{r}
+#dataset 1 - E2 sampels
+counts1 <- read.table("data/E2_treatment.tsv", sep='\t', header=T)
+genes.symbols1 <- counts1[,2] 
+counts1 <- counts1[,-2] 
+metadata1 <- read.table("data/E2coldata.tsv", sep='\t', header=T)
+#dataset 2 - ZNA sampels
+counts2 <- read.table("data/ZNA_molocule_treatment.tsv", sep='\t', header=T)
+genes.symbols2 <- counts2[,2] 
+counts2 <- counts2[,-2] 
+metadata2 <- read.table("data/ZNAcoldata.tsv", sep='\t', header=T)
+##Metadata 1
+newdata <- metadata1[8]
+rownames(newdata) <- metadata1[,1]
+metadata1 <- newdata
+names(metadata1)[1] <- "compound"
+metadata1[1] <- mapvalues(metadata1[,1],c("17beta-estradiol 10 nanomolar","vehicle") , c("E2","DMSO"))
+metadata1$compound <- as.factor(metadata1$compound)
+# Ordering the values
+metadata1 <- metadata1[order(match(rownames(metadata1),colnames(counts1)[-1])), , drop= FALSE]
+##Metadata 2
+newdata <- metadata2[10]
+rownames(newdata) <- metadata2[,1]
+metadata2 <- newdata
+names(metadata2)[1] <- "compound"
+metadata2[1] <- mapvalues(metadata2[,1],c("ZNA 30 micromolar") , c("ZNA"))
+metadata2$compound <- as.factor(metadata2$compound)
+# Ordering the values
+metadata2 <- metadata2[order(match(rownames(metadata2),colnames(counts2)[-1])), , drop= FALSE]
+```
+
+```{r}
+# merging all of the data for both treatments
+merged_counts_combined = merged_all <- merge(x= counts1,y= counts2,by="Gene.ID" ,all.x=TRUE)
+merged_metadata_combined <- rbind(metadata1, metadata2)
+# creating combined deseq object
+merged_counts_combined <- na.omit(merged_counts_combined) 
+merged_counts_combined[apply(merged_coutns_combined[,-1], 1, function(x) !all(x==0)),] # remove zeros
+dds_combined <- DESeqDataSetFromMatrix(countData=merged_counts_combined , colData=merged_metadata_combined, design= ~compound,tidy=TRUE)
+dds_combined <- DESeq(dds_combined)
+```
+
+
+######################################################
+##                                                  ##
+##   Running heatmap analysis on both treatments    ##
+##                                                  ##
+######################################################
+
+
+```{r}
+library(pheatmap)
+resultsNames(dds_combined)
+resLFC_combined <- lfcShrink(dds_combined, contrast = c("compound", "ZNA","E2") , type="ashr")
+resLFC_combined$symbol <- genes.symbols1
+resOrdered_combined <- resLFC_combined[order(resLFC_combined$pvalue),]
+# Take top 10 genes with the lowest p-value that express in E2-treatment patients (log2FoldChange>0)
+selectUp <- resOrdered_combined$symbol[resOrdered_combined$log2FoldChange>0][1:10]
+# Take top 10 genes with the lowest  p-value that express in ZNA-treatment patients (log2FoldChange<0)
+selectDown <- resOrdered_combined$symbol[resOrdered_combined$log2FoldChange<0][1:10]
+select = c(selectUp,selectDown)
+df <- data.frame(row.names = colnames(dds_combined))
+# Get normalized counts (also try rlog, and counts with normalized=T)
+normcounts = assay(vst(dds_combined, blind=T))
+pheatmap(normcounts[select,], cluster_rows=TRUE,
+         show_colnames = FALSE, cluster_cols=TRUE, 
+         annotation_col=df, scale = 'row', cutree_cols = 2, cutree_rows = 2)
+```
+
+######################################################
+##                                                  ##
+##                    Clustering                    ##
+##                                                  ##
+######################################################
+
+```{r}
+dds.symbol <- dds_combined
+normcounts = assay(vst(dds.symbol, blind=T))
+var_per_gene <- apply(normcounts, 1, var)  # Calculate the variance per gene
+selectedGenes <- names(var_per_gene[order(var_per_gene, decreasing = T)][1:1000]) # Take the top 1000 variable genes
+normcounts.top1Kvar <- t(normcounts[selectedGenes,])  # Construct a new matrix only for the top 1000 genes
+# Construct a distance matrix based on pairwise euclidean distances between all counts 
+dist_mat <- dist(normcounts.top1Kvar, method = 'euclidean')
+hclust_avg <- hclust(dist_mat, method = 'average')
+plot(hclust_avg, cex = 0.6, hang = -1)
+```
+```{r}
+plot(hclust_avg, cex = 0.6, hang = -1)
+rect.hclust(hclust_avg, k = 2, border = 2:8)
+```
+
+######################################################
+##                                                  ##
+##                     K-means                      ##
+##                                                  ##
+######################################################
+
+```{r}
+# find the best k
+library(factoextra)
+fviz_nbclust(normcounts.top1Kvar, FUN = hcut, method = "wss")
+```
+
+```{r}
+kmeans.out <- kmeans(normcounts.top1Kvar, centers = 2, nstart = 25)
+fviz_cluster(kmeans.out, data = normcounts.top1Kvar)
+```
+
