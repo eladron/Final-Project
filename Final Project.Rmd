@@ -200,21 +200,10 @@ pca_plot + ggtitle("PCA analysis for E2 samples")
 ######################################################
 
 ```{r}
-<<<<<<< HEAD
 metadata2[1] <- mapvalues(metadata2[,1],c("ZNA") , c("ZNA_3hrs"))
 metadata3[1] <- mapvalues(metadata3[,1],c("ZNA") , c("ZNA_12hrs"))
-=======
-metadata2[1] <- mapvalues(metadata2[,1],c("ZNA 3hrs") , c("ZNA_3hrs"))
-metadata3[1] <- mapvalues(metadata3[,1],c("ZNA 12hrs") , c("ZNA_12hrs"))
-
-
-
 merged_counts = merged_all <- merge(x= counts2,y= counts3,by="Gene.ID" ,all.x=TRUE)
-#merged_counts <- merge(x= merged_counts, y= counts3 ,by="Gene.ID" ,all.x=TRUE)
 merged_metadata <- rbind(metadata2, metadata3)
-#merged_metadata <- rbind(merged_metadata,metadata3)
-#View(merged_counts)
->>>>>>> 11046d0c5eb02a9e8e794c6a484bcd43ccea8ac6
 
 merged_counts = merged_all <- merge(x= counts1,y= counts2,by="Gene.ID" ,all.x=TRUE)
 merged_metadata <- rbind(metadata1, metadata2)
@@ -366,7 +355,8 @@ selectUp <- resOrdered_combined$symbol[resOrdered_combined$log2FoldChange>0][1:1
 # Take top 10 genes with the lowest  p-value that express in ZNA-treatment patients (log2FoldChange<0)
 selectDown <- resOrdered_combined$symbol[resOrdered_combined$log2FoldChange<0][1:10]
 select = c(selectUp,selectDown)
-df <- data.frame(row.names = colnames(dds_combined))
+df <- data.frame(row.names = colnames(dds_combined),
+                 disease = colData(dds.symbol)$disease,)
 # Get normalized counts (also try rlog, and counts with normalized=T)
 normcounts = assay(vst(dds_combined, blind=T))
 pheatmap(normcounts[select,], cluster_rows=TRUE,
