@@ -235,7 +235,7 @@ merged_counts = merged_all <- merge(x= counts2,y= counts3,by="Gene.ID" ,all.x=TR
 #merged_counts <- merge(x= merged_counts, y= counts3 ,by="Gene.ID" ,all.x=TRUE)
 merged_metadata <- rbind(metadata2, metadata3)
 #merged_metadata <- rbind(merged_metadata,metadata3)
-View(merged_counts)
+#View(merged_counts)
 
 ```
 
@@ -260,13 +260,95 @@ pca_plot <- plotPCA(vst(dds.symbol,blind=T),ntop=1000,intgroup="compound")
 pca_plot + ggtitle("PCA analysis for ZNA treatments")
 ```
 
+```{r}
+# merging all of the data for both treatments
+
+merged_counts_combined = merged_all <- merge(x= merged_counts,y= counts1,by="Gene.ID" ,all.x=TRUE)
+merged_metadata_combined <- rbind(merged_metadata, metadata1)
+# creating combined deseq object
+
+merged_counts <- na.omit(merged_counts_combined) 
+dds_combined <- DESeqDataSetFromMatrix(countData=merged_counts_combined , colData=merged_metadata_combined, design= ~compound,tidy=TRUE)
+dds_combined <- DESeq(dds_combined)
+```
+
+
 ######################################################
 ##                                                  ##
-##             another analysis                     ##
+##   Running heatmap analysis on both treatments    ##
+##                                                  ##
+######################################################
+```{r}
+View(genes.symbols1)
+#merged_genes <- merge(x= genes.symbols2,y= genes.symbols3) # R is stuck here dont run
+``` 
+
+
+```{r}
+library(pheatmap)
+
+#merged_genes1 <- merge(x= genes.symbols1,y= genes.symbols2)
+#merged_genes2 <- merge(x= merged_genes1,y= genes.symbols3)
+
+resultsNames(dds_combined)
+resLFC_combined <- lfcShrink(dds_combined, contrast = c("compound", "ZNA", "DMSO","E2") , type="ashr")
+resLFC_combined$symbol <- c(genes.symbols1, genes.symbols2, genes.symbols3)
+resOrdered_combined <- resLFC_combined[order(resLFC_combined$pvalue),]
+
+# Take top 10 genes with the lowest p-value that express in E2-treatment patients (log2FoldChange>0)
+selectUp <- resOrdered1$symbol[resOrdered1$log2FoldChange>0][1:10]
+# Take top 10 genes with the lowest  p-value that express in ZNA-treatment patients (log2FoldChange<0)
+selectDown <- resOrdered1$symbol[resOrdered1$log2FoldChange<0][1:10]
+select = c(selectUp,selectDown)
+
+df <- data.frame(row.names = colnames(dds_combined))
+
+# Get normalized counts (also try rlog, and counts with normalized=T)
+normcounts = assay(vst(dds_combined, blind=T))
+pheatmap(normcounts[select,], cluster_rows=TRUE,
+         show_colnames = FALSE, cluster_cols=TRUE, 
+         annotation_col=df, scale = 'row', cutree_cols = 2, cutree_rows = 2)
+```
+
+######################################################
+##                                                  ##
+##                    Clustering                    ##
 ##                                                  ##
 ######################################################
 
+```{r}
+dds.symbol <- dds_combined
+normcounts = assay(vst(dds.symbol, blind=T))
+var_per_gene <- apply(normcounts, 1, var)  # Calculate the variance per gene
+selectedGenes <- names(var_per_gene[order(var_per_gene, decreasing = T)][1:1000]) # Take the top 1000 variable genes
+normcounts.top1Kvar <- t(normcounts[selectedGenes,])  # Construct a new matrix only for the top 1000 genes
 
+# Construct a distance matrix based on pairwise euclidean distances between all counts 
+dist_mat <- dist(normcounts.top1Kvar, method = 'euclidean')
 
+hclust_avg <- hclust(dist_mat, method = 'average')
+plot(hclust_avg, cex = 0.6, hang = -1)
+```
+```{r}
+plot(hclust_avg, cex = 0.6, hang = -1)
+rect.hclust(hclust_avg, k = 2, border = 2:8)
+```
+
+######################################################
+##                                                  ##
+##                     K-means                      ##
+##                                                  ##
+######################################################
+
+```{r}
+# find the best k
+library(factoextra)
+fviz_nbclust(normcounts.top1Kvar, FUN = hcut, method = "wss")
+```
+
+```{r}
+kmeans.out <- kmeans(normcounts.top1Kvar, centers = 2, nstart = 25)
+fviz_cluster(kmeans.out, data = normcounts.top1Kvar)
+```
 
 
