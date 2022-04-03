@@ -394,12 +394,12 @@ selectUp <- resOrdered_combined$symbol[resOrdered_combined$log2FoldChange>0][1:1
 selectDown <- resOrdered_combined$symbol[resOrdered_combined$log2FoldChange<0][1:10]
 select = c(selectUp,selectDown)
 df <- data.frame(row.names = colnames(dds.symbol),
-                 disease = colData(dds.symbol)$disease)
-# Get normalized counts (also try rlog, and counts with normalized=T)
-normcounts = assay(vst(dds_combined, blind=T))
+                 compound = colData(dds.symbol)$compound)
+# Get normalized counts
+normcounts = assay(vst(dds.symbol, blind=T))
 pheatmap(normcounts[select,], cluster_rows=TRUE,
          show_colnames = FALSE, cluster_cols=TRUE, 
-         annotation_col=df, scale = 'row', cutree_cols = 2, cutree_rows = 2)
+         annotation_col=df, scale = 'row', cutree_cols = 3, cutree_rows = 2)
 ```
 
 ######################################################
