@@ -376,15 +376,8 @@ normcounts = assay(vst(dds.symbol, blind=T))
 var_per_gene <- apply(normcounts, 1, var)  # Calculate the variance per gene
 selectedGenes <- names(var_per_gene[order(var_per_gene, decreasing = T)][1:1000]) # Take the top 1000 variable genes
 normcounts.top1Kvar <- t(normcounts[selectedGenes,])  # Construct a new matrix only for the top 1000 genes
-<<<<<<< HEAD
 # Construct a distance matrix based on pairwise euclidean distances between all counts 
 dist_mat <- dist(normcounts.top1Kvar, method = 'euclidean')
-=======
-
-# Construct a distance matrix based on pairwise euclidean distances between all counts 
-dist_mat <- dist(normcounts.top1Kvar, method = 'euclidean')
-
->>>>>>> 11046d0c5eb02a9e8e794c6a484bcd43ccea8ac6
 hclust_avg <- hclust(dist_mat, method = 'average')
 plot(hclust_avg, cex = 0.6, hang = -1)
 ```
